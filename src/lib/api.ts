@@ -176,7 +176,7 @@ class ApiClient {
                   },
                   { emoji: "📚", text: "Pflege und Verwaltung von Sammlungen" },
                   { emoji: "👥", text: "Durchführung von Führungen" },
-                  { emoji: "💼", text: "Administrative Tätigkeiten" },
+                  { emoji: "����", text: "Administrative Tätigkeiten" },
                 ],
               },
               order: 2,
@@ -263,8 +263,22 @@ class ApiClient {
 
   // Form Submissions
   async getSubmissions(pageId?: number): Promise<FormSubmission[]> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Return demo data - this will be handled in the component
+      return [];
+    }
+
     const endpoint = pageId ? `/submissions?page_id=${pageId}` : "/submissions";
     return this.request<FormSubmission[]>(endpoint);
+  }
+
+  async deleteSubmission(id: number): Promise<void> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // In demo mode, just return success
+      return Promise.resolve();
+    }
+
+    await this.request(`/submissions/${id}`, { method: "DELETE" });
   }
 
   async submitForm(pageId: number, data: Record<string, any>): Promise<void> {

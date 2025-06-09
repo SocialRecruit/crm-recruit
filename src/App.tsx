@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import PageBuilder from "./pages/PageBuilder";
 import LandingPage from "./pages/LandingPage";
+import Submissions from "./pages/Submissions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,22 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <PageBuilder />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/submissions"
+        element={
+          <ProtectedRoute>
+            <Submissions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         }
       />
