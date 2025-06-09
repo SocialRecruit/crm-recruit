@@ -1,4 +1,6 @@
-const API_BASE_URL = "/api";
+const API_BASE_URL = import.meta.env.DEV
+  ? "http://localhost/social-recruiting-crm/api"
+  : "/api";
 
 export interface User {
   id: number;
