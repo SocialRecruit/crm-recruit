@@ -67,16 +67,63 @@ class ApiClient {
 
   // Authentication
   async login(credentials: { username: string; password: string }) {
-    const response = await this.request<{ token: string; user: User }>(
-      "/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify(credentials),
-      },
-    );
+    // Demo mode for development when backend is not available
+    if (
+      import.meta.env.DEV &&
+      credentials.username === "admin" &&
+      credentials.password === "admin123"
+    ) {
+      const demoResponse = {
+        token: "demo_token_" + Date.now(),
+        user: {
+          id: 1,
+          username: "admin",
+          email: "admin@wws-strube.de",
+          role: "admin" as const,
+          created_at: new Date().toISOString(),
+        },
+      };
 
-    localStorage.setItem("auth_token", response.token);
-    return response;
+      localStorage.setItem("auth_token", demoResponse.token);
+      localStorage.setItem("demo_mode", "true");
+      return demoResponse;
+    }
+
+    try {
+      const response = await this.request<{ token: string; user: User }>(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify(credentials),
+        },
+      );
+
+      localStorage.setItem("auth_token", response.token);
+      localStorage.removeItem("demo_mode");
+      return response;
+    } catch (error) {
+      // If backend is not available and using demo credentials, use demo mode
+      if (
+        credentials.username === "admin" &&
+        credentials.password === "admin123"
+      ) {
+        const demoResponse = {
+          token: "demo_token_" + Date.now(),
+          user: {
+            id: 1,
+            username: "admin",
+            email: "admin@wws-strube.de",
+            role: "admin" as const,
+            created_at: new Date().toISOString(),
+          },
+        };
+
+        localStorage.setItem("auth_token", demoResponse.token);
+        localStorage.setItem("demo_mode", "true");
+        return demoResponse;
+      }
+      throw error;
+    }
   }
 
   async logout() {
@@ -85,11 +132,64 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return {
+        id: 1,
+        username: "admin",
+        email: "admin@wws-strube.de",
+        role: "admin",
+        created_at: new Date().toISOString(),
+      };
+    }
+
     return this.request<User>("/auth/me");
   }
 
   // Landing Pages
   async getPages(): Promise<LandingPage[]> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return [
+        {
+          id: 1,
+          title: "Museumsmitarbeiter",
+          slug: "museumsmitarbeiter",
+          header_image: "",
+          header_text: "Werden Sie Teil unseres Teams im Museum",
+          header_overlay_color: "#000000",
+          header_overlay_opacity: 0.5,
+          header_height: 400,
+          content_blocks: [
+            {
+              id: "1",
+              type: "header",
+              content: { text: "Ihre Aufgaben" },
+              order: 1,
+            },
+            {
+              id: "2",
+              type: "list",
+              content: {
+                items: [
+                  {
+                    emoji: "🎨",
+                    text: "Betreuung von Ausstellungen und Besuchern",
+                  },
+                  { emoji: "📚", text: "Pflege und Verwaltung von Sammlungen" },
+                  { emoji: "👥", text: "Durchführung von Führungen" },
+                  { emoji: "💼", text: "Administrative Tätigkeiten" },
+                ],
+              },
+              order: 2,
+            },
+          ],
+          status: "published",
+          user_id: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+    }
+
     return this.request<LandingPage[]>("/pages");
   }
 
@@ -176,6 +276,18 @@ class ApiClient {
 
   // User Management
   async getUsers(): Promise<User[]> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return [
+        {
+          id: 1,
+          username: "admin",
+          email: "admin@wws-strube.de",
+          role: "admin",
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+
     return this.request<User[]>("/users");
   }
 
