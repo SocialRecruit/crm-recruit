@@ -139,8 +139,33 @@ const SuperAdminDashboard = () => {
 
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Creating tenant:", newTenant);
+
+    // Validierung
+    if (
+      !newTenant.name ||
+      !newTenant.subdomain ||
+      !newTenant.admin_email ||
+      !newTenant.admin_password
+    ) {
+      setError("Bitte füllen Sie alle Pflichtfelder aus");
+      return;
+    }
+
+    // Subdomain validation
+    if (!/^[a-z0-9-]+$/.test(newTenant.subdomain)) {
+      setError(
+        "Subdomain darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
+      );
+      return;
+    }
+
     try {
-      await api.createTenant(newTenant);
+      setError("");
+      console.log("API call: createTenant");
+      const createdTenant = await api.createTenant(newTenant);
+      console.log("Tenant created successfully:", createdTenant);
+
       setShowCreateDialog(false);
       setNewTenant({
         name: "",
@@ -151,9 +176,17 @@ const SuperAdminDashboard = () => {
         admin_password: "",
         admin_username: "admin",
       });
+
       await loadData();
+
+      // Success message
+      setError("");
+      alert(`Tenant "${newTenant.name}" wurde erfolgreich erstellt!`);
     } catch (err) {
-      setError("Fehler beim Erstellen des Tenants");
+      console.error("Error creating tenant:", err);
+      setError(
+        `Fehler beim Erstellen des Tenants: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
+      );
     }
   };
 
@@ -357,9 +390,14 @@ const SuperAdminDashboard = () => {
                           onSubmit={handleCreateTenant}
                           className="space-y-4"
                         >
+                          {error && (
+                            <Alert variant="destructive">
+                              <AlertDescription>{error}</AlertDescription>
+                            </Alert>
+                          )}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label htmlFor="name">Firmenname</Label>
+                              <Label htmlFor="name">Firmenname *</Label>
                               <Input
                                 id="name"
                                 value={newTenant.name}
@@ -369,23 +407,33 @@ const SuperAdminDashboard = () => {
                                     name: e.target.value,
                                   })
                                 }
+                                placeholder="z.B. Musterfirma GmbH"
                                 required
                               />
                             </div>
                             <div>
-                              <Label htmlFor="subdomain">Subdomain</Label>
+                              <Label htmlFor="subdomain">Subdomain *</Label>
                               <Input
                                 id="subdomain"
                                 value={newTenant.subdomain}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                    .toLowerCase()
+                                    .replace(/[^a-z0-9-]/g, "");
                                   setNewTenant({
                                     ...newTenant,
-                                    subdomain: e.target.value.toLowerCase(),
-                                  })
-                                }
+                                    subdomain: value,
+                                  });
+                                }}
                                 placeholder="firma"
                                 required
+                                pattern="[a-z0-9-]+"
+                                title="Nur Kleinbuchstaben, Zahlen und Bindestriche erlaubt"
                               />
+                              <p className="text-xs text-gray-500 mt-1">
+                                URL: {newTenant.subdomain || "subdomain"}
+                                .beispiel.de
+                              </p>
                             </div>
                           </div>
 
@@ -435,7 +483,7 @@ const SuperAdminDashboard = () => {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <Label htmlFor="admin_username">
-                                  Benutzername
+                                  Admin Benutzername *
                                 </Label>
                                 <Input
                                   id="admin_username"
@@ -446,11 +494,14 @@ const SuperAdminDashboard = () => {
                                       admin_username: e.target.value,
                                     })
                                   }
+                                  placeholder="admin"
                                   required
                                 />
                               </div>
                               <div>
-                                <Label htmlFor="admin_email">E-Mail</Label>
+                                <Label htmlFor="admin_email">
+                                  Admin E-Mail *
+                                </Label>
                                 <Input
                                   id="admin_email"
                                   type="email"
@@ -461,12 +512,15 @@ const SuperAdminDashboard = () => {
                                       admin_email: e.target.value,
                                     })
                                   }
+                                  placeholder="admin@firma.de"
                                   required
                                 />
                               </div>
                             </div>
                             <div className="mt-4">
-                              <Label htmlFor="admin_password">Passwort</Label>
+                              <Label htmlFor="admin_password">
+                                Admin Passwort *
+                              </Label>
                               <Input
                                 id="admin_password"
                                 type="password"
@@ -477,20 +531,38 @@ const SuperAdminDashboard = () => {
                                     admin_password: e.target.value,
                                   })
                                 }
+                                placeholder="Mindestens 8 Zeichen"
+                                minLength={8}
                                 required
                               />
                             </div>
                           </div>
 
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end space-x-2 pt-4">
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => setShowCreateDialog(false)}
+                              onClick={() => {
+                                setShowCreateDialog(false);
+                                setError("");
+                              }}
+                              disabled={loading}
                             >
                               Abbrechen
                             </Button>
-                            <Button type="submit">Tenant erstellen</Button>
+                            <Button type="submit" disabled={loading}>
+                              {loading ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Erstelle...
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Tenant erstellen
+                                </>
+                              )}
+                            </Button>
                           </div>
                         </form>
                       </DialogContent>
