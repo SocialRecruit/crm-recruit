@@ -304,6 +304,40 @@ class ApiClient {
   }
 
   async getPage(id: number): Promise<LandingPage> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Return demo page data for any requested ID
+      return {
+        id: id,
+        title: `Demo Landing Page ${id}`,
+        slug: `demo-page-${id}`,
+        header_image: "",
+        header_text: "Willkommen bei unserem Demo Tenant",
+        header_overlay_color: "#000000",
+        header_overlay_opacity: 0.5,
+        header_height: 400,
+        content_blocks: [
+          {
+            id: "1",
+            type: "header",
+            content: { text: "Demo Content" },
+            order: 1,
+          },
+          {
+            id: "2",
+            type: "text",
+            content: {
+              text: "Dies ist eine Demo-Seite für den aktuellen Tenant. Sie können diese Seite bearbeiten und neue Inhaltsblöcke hinzufügen.",
+            },
+            order: 2,
+          },
+        ],
+        status: "draft",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     return this.request<LandingPage>(`/pages/${id}`);
   }
 
