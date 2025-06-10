@@ -158,12 +158,34 @@ class ApiClient {
 
   async getCurrentUser(): Promise<User> {
     if (localStorage.getItem("demo_mode") === "true") {
+      const token = localStorage.getItem("auth_token") || "";
+
+      // Check if it's super admin demo token
+      if (token.includes("superadmin")) {
+        return {
+          id: 999,
+          username: "superadmin",
+          email: "superadmin@system.local",
+          role: "super_admin",
+          created_at: new Date().toISOString(),
+        };
+      }
+
+      // Default to tenant admin demo
       return {
         id: 1,
         username: "admin",
         email: "admin@wws-strube.de",
-        role: "admin",
+        role: "tenant_admin",
+        tenant_id: 1,
         created_at: new Date().toISOString(),
+        tenant: {
+          id: 1,
+          name: "WWS-Strube Demo",
+          subdomain: "demo",
+          settings: { timezone: "Europe/Berlin", language: "de" },
+          branding: { primary_color: "#3b82f6", company_name: "WWS-Strube" },
+        },
       };
     }
 
