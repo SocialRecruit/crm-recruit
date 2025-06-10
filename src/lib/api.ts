@@ -91,26 +91,60 @@ class ApiClient {
   }
 
   // Authentication
-  async login(credentials: { username: string; password: string }) {
-    // Demo mode for development when backend is not available
+  async login(credentials: {
+    username: string;
+    password: string;
+    tenant_id?: number;
+  }) {
+    // Super Admin Demo Login
     if (
-      import.meta.env.DEV &&
-      credentials.username === "admin" &&
-      credentials.password === "admin123"
+      credentials.username === "superadmin" &&
+      credentials.password === "superadmin123"
     ) {
       const demoResponse = {
-        token: "demo_token_" + Date.now(),
+        token: "demo_superadmin_token_" + Date.now(),
         user: {
-          id: 1,
-          username: "admin",
-          email: "admin@wws-strube.de",
-          role: "admin" as const,
+          id: 999,
+          username: "superadmin",
+          email: "superadmin@system.local",
+          role: "super_admin" as const,
           created_at: new Date().toISOString(),
         },
       };
 
       localStorage.setItem("auth_token", demoResponse.token);
       localStorage.setItem("demo_mode", "true");
+      localStorage.setItem("user_type", "super_admin");
+      return demoResponse;
+    }
+
+    // Tenant Admin Demo Login
+    if (
+      credentials.username === "admin" &&
+      credentials.password === "admin123"
+    ) {
+      const demoResponse = {
+        token: "demo_tenant_token_" + Date.now(),
+        user: {
+          id: 1,
+          username: "admin",
+          email: "admin@wws-strube.de",
+          role: "tenant_admin" as const,
+          tenant_id: 1,
+          created_at: new Date().toISOString(),
+          tenant: {
+            id: 1,
+            name: "WWS-Strube Demo",
+            subdomain: "demo",
+            settings: { timezone: "Europe/Berlin", language: "de" },
+            branding: { primary_color: "#3b82f6", company_name: "WWS-Strube" },
+          },
+        },
+      };
+
+      localStorage.setItem("auth_token", demoResponse.token);
+      localStorage.setItem("demo_mode", "true");
+      localStorage.setItem("user_type", "tenant_admin");
       return demoResponse;
     }
 
@@ -125,43 +159,72 @@ class ApiClient {
 
       localStorage.setItem("auth_token", response.token);
       localStorage.removeItem("demo_mode");
+      localStorage.removeItem("user_type");
       return response;
     } catch (error) {
-      // If backend is not available and using demo credentials, use demo mode
+      // Fallback to demo mode if backend is not available
       if (
-        credentials.username === "admin" &&
-        credentials.password === "admin123"
+        credentials.username === "superadmin" &&
+        credentials.password === "superadmin123"
       ) {
         const demoResponse = {
-          token: "demo_token_" + Date.now(),
+          token: "demo_superadmin_token_" + Date.now(),
           user: {
-            id: 1,
-            username: "admin",
-            email: "admin@wws-strube.de",
-            role: "admin" as const,
+            id: 999,
+            username: "superadmin",
+            email: "superadmin@system.local",
+            role: "super_admin" as const,
             created_at: new Date().toISOString(),
           },
         };
 
         localStorage.setItem("auth_token", demoResponse.token);
         localStorage.setItem("demo_mode", "true");
+        localStorage.setItem("user_type", "super_admin");
         return demoResponse;
       }
+
+      if (
+        credentials.username === "admin" &&
+        credentials.password === "admin123"
+      ) {
+        const demoResponse = {
+          token: "demo_tenant_token_" + Date.now(),
+          user: {
+            id: 1,
+            username: "admin",
+            email: "admin@wws-strube.de",
+            role: "tenant_admin" as const,
+            tenant_id: 1,
+            created_at: new Date().toISOString(),
+          },
+        };
+
+        localStorage.setItem("auth_token", demoResponse.token);
+        localStorage.setItem("demo_mode", "true");
+        localStorage.setItem("user_type", "tenant_admin");
+        return demoResponse;
+      }
+
       throw error;
     }
   }
 
   async logout() {
     localStorage.removeItem("auth_token");
-    await this.request("/auth/logout", { method: "POST" });
+    localStorage.removeItem("demo_mode");
+    localStorage.removeItem("user_type");
+
+    if (localStorage.getItem("demo_mode") !== "true") {
+      await this.request("/auth/logout", { method: "POST" });
+    }
   }
 
   async getCurrentUser(): Promise<User> {
     if (localStorage.getItem("demo_mode") === "true") {
-      const token = localStorage.getItem("auth_token") || "";
+      const userType = localStorage.getItem("user_type");
 
-      // Check if it's super admin demo token
-      if (token.includes("superadmin")) {
+      if (userType === "super_admin") {
         return {
           id: 999,
           username: "superadmin",
@@ -343,7 +406,7 @@ class ApiClient {
           id: 1,
           username: "admin",
           email: "admin@wws-strube.de",
-          role: "admin",
+          role: "tenant_admin",
           created_at: new Date().toISOString(),
         },
       ];
@@ -394,6 +457,26 @@ class ApiClient {
           settings: { timezone: "Europe/Berlin", language: "de" },
           branding: { primary_color: "#3b82f6", company_name: "WWS-Strube" },
         },
+        {
+          id: 2,
+          name: "Beispiel Firma GmbH",
+          subdomain: "beispiel",
+          status: "active",
+          plan: "basic",
+          max_users: 25,
+          max_pages: 50,
+          user_count: 5,
+          page_count: 3,
+          submission_count: 12,
+          created_at: new Date(
+            Date.now() - 7 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          settings: { timezone: "Europe/Berlin", language: "de" },
+          branding: {
+            primary_color: "#10b981",
+            company_name: "Beispiel Firma",
+          },
+        },
       ];
     }
 
@@ -403,19 +486,30 @@ class ApiClient {
   async getSuperAdminStats(): Promise<any> {
     if (localStorage.getItem("demo_mode") === "true") {
       return {
-        total_tenants: 1,
-        active_tenants: 1,
-        total_users: 2,
-        total_pages: 1,
-        total_submissions: 3,
-        plans: { pro: 1 },
+        total_tenants: 2,
+        active_tenants: 2,
+        total_users: 7,
+        total_pages: 4,
+        total_submissions: 15,
+        plans: { basic: 1, pro: 1 },
         recent_tenants: [
+          {
+            id: 2,
+            name: "Beispiel Firma GmbH",
+            subdomain: "beispiel",
+            status: "active",
+            created_at: new Date(
+              Date.now() - 7 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
+          },
           {
             id: 1,
             name: "WWS-Strube Demo",
             subdomain: "demo",
             status: "active",
-            created_at: new Date().toISOString(),
+            created_at: new Date(
+              Date.now() - 30 * 24 * 60 * 60 * 1000,
+            ).toISOString(),
           },
         ],
       };
@@ -435,7 +529,7 @@ class ApiClient {
   }): Promise<Tenant> {
     if (localStorage.getItem("demo_mode") === "true") {
       return Promise.resolve({
-        id: 2,
+        id: Math.floor(Math.random() * 1000) + 100,
         name: tenant.name,
         subdomain: tenant.subdomain,
         status: "active",
@@ -473,12 +567,19 @@ class ApiClient {
     tenantId: number,
   ): Promise<{ token: string; tenant: any }> {
     if (localStorage.getItem("demo_mode") === "true") {
+      // Switch to tenant admin demo mode
+      const demoToken = "demo_tenant_impersonate_" + Date.now();
+      localStorage.setItem("auth_token", demoToken);
+      localStorage.setItem("user_type", "tenant_admin");
+
       return Promise.resolve({
-        token: "demo_impersonation_token",
+        token: demoToken,
         tenant: {
           id: tenantId,
           name: "Demo Tenant",
           subdomain: "demo",
+          settings: { timezone: "Europe/Berlin", language: "de" },
+          branding: { primary_color: "#3b82f6", company_name: "Demo Tenant" },
         },
       });
     }
