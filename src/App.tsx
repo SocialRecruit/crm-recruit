@@ -10,6 +10,7 @@ import PageBuilder from "./pages/PageBuilder";
 import LandingPage from "./pages/LandingPage";
 import Submissions from "./pages/Submissions";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import PlansManagement from "./pages/PlansManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

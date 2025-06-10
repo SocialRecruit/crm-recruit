@@ -527,19 +527,29 @@ class ApiClient {
     admin_password: string;
     admin_username: string;
   }): Promise<Tenant> {
+    console.log("API: Creating tenant", tenant);
+
     if (localStorage.getItem("demo_mode") === "true") {
-      return Promise.resolve({
+      console.log("API: Demo mode - creating tenant locally");
+      const newTenant = {
         id: Math.floor(Math.random() * 1000) + 100,
         name: tenant.name,
         subdomain: tenant.subdomain,
-        status: "active",
+        domain: tenant.domain,
+        status: "active" as const,
         plan: tenant.plan as any,
         max_users: 50,
         max_pages: 100,
+        user_count: 1,
+        page_count: 0,
+        submission_count: 0,
         created_at: new Date().toISOString(),
-        settings: {},
-        branding: {},
-      });
+        settings: { timezone: "Europe/Berlin", language: "de" },
+        branding: { primary_color: "#3b82f6", company_name: tenant.name },
+      };
+
+      console.log("API: Tenant created successfully", newTenant);
+      return Promise.resolve(newTenant);
     }
 
     return this.request<Tenant>("/admin/tenants", {

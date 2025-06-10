@@ -58,8 +58,13 @@ const Dashboard = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // Redirect super admin to super admin dashboard
+    if (user?.role === "super_admin") {
+      navigate("/super-admin");
+      return;
+    }
     loadData();
-  }, []);
+  }, [user, navigate]);
 
   const loadData = async () => {
     try {

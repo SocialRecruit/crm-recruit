@@ -58,6 +58,7 @@ import {
   Shield,
   TrendingUp,
   Eye,
+  Crown,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -352,6 +353,18 @@ const SuperAdminDashboard = () => {
               </Card>
             </div>
           )}
+
+          <div className="flex justify-between items-center mb-6">
+            <div></div>
+            <div className="flex gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/super-admin/plans">
+                  <Crown className="mr-2 h-4 w-4" />
+                  Plan Management
+                </Link>
+              </Button>
+            </div>
+          </div>
 
           <Tabs defaultValue="tenants" className="space-y-6">
             <TabsList>
