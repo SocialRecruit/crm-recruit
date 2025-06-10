@@ -265,8 +265,20 @@ const SuperAdminDashboard = () => {
       console.log("Current user:", user);
       console.log("Demo mode:", localStorage.getItem("demo_mode"));
 
+      // Debug localStorage content
+      console.log(
+        "Custom tenants in localStorage:",
+        localStorage.getItem("demo_custom_tenants"),
+      );
+
       const tenant = tenants.find((t) => t.id === id);
-      console.log("Target tenant:", tenant);
+      console.log("Target tenant from state:", tenant);
+
+      // Also check if tenant exists in fresh API call
+      const allTenants = await api.getSuperAdminTenants();
+      const tenantFromAPI = allTenants.find((t) => t.id === id);
+      console.log("Target tenant from API:", tenantFromAPI);
+      console.log("All tenants from API:", allTenants);
 
       setError("");
       setLoading(true);
