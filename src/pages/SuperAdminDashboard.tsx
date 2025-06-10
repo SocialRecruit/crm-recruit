@@ -191,18 +191,70 @@ const SuperAdminDashboard = () => {
     }
   };
 
-  const handleDeleteTenant = async (id: number, name: string) => {
+  const handleCreateTenant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    console.log("Creating tenant:", newTenant);
+
+    // Validierung
     if (
-      window.confirm(
-        `Sind Sie sicher, dass Sie den Tenant "${name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`,
-      )
+      !newTenant.name ||
+      !newTenant.subdomain ||
+      !newTenant.admin_email ||
+      !newTenant.admin_password
     ) {
-      try {
-        await api.deleteTenant(id);
-        await loadData();
-      } catch (err) {
-        setError("Fehler beim Löschen des Tenants");
-      }
+      setError("Bitte füllen Sie alle Pflichtfelder aus");
+      setLoading(false);
+      return;
+    }
+
+    // Subdomain validation
+    if (!/^[a-z0-9-]+$/.test(newTenant.subdomain)) {
+      setError(
+        "Subdomain darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
+      );
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError("");
+      console.log("API call: createTenant");
+      const createdTenant = await api.createTenant(newTenant);
+      console.log("Tenant created successfully:", createdTenant);
+
+      // Add tenant to local state immediately for demo mode
+      setTenants((prevTenants) => [...prevTenants, createdTenant]);
+
+      setShowCreateDialog(false);
+      setNewTenant({
+        name: "",
+        subdomain: "",
+        domain: "",
+        plan: "free",
+        admin_email: "",
+        admin_password: "",
+        admin_username: "admin",
+      });
+
+      // Reload data to get fresh stats
+      await loadData();
+
+      // Success message
+      setError("");
+      setTimeout(() => {
+        alert(
+          `✅ Tenant "${createdTenant.name}" wurde erfolgreich erstellt!\n\nSubdomain: ${createdTenant.subdomain}\nAdmin: ${newTenant.admin_username}`,
+        );
+      }, 100);
+    } catch (err) {
+      console.error("Error creating tenant:", err);
+      setError(
+        `Fehler beim Erstellen des Tenants: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

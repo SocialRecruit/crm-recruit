@@ -477,6 +477,26 @@ class ApiClient {
             company_name: "Beispiel Firma",
           },
         },
+        {
+          id: 3,
+          name: "Startup XYZ",
+          subdomain: "startup-xyz",
+          status: "active",
+          plan: "pro",
+          max_users: 100,
+          max_pages: 200,
+          user_count: 8,
+          page_count: 15,
+          submission_count: 45,
+          created_at: new Date(
+            Date.now() - 3 * 24 * 60 * 60 * 1000,
+          ).toISOString(),
+          settings: { timezone: "Europe/Berlin", language: "de" },
+          branding: {
+            primary_color: "#8b5cf6",
+            company_name: "Startup XYZ",
+          },
+        },
       ];
     }
 

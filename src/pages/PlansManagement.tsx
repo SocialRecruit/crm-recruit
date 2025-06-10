@@ -351,9 +351,36 @@ const PlansManagement = () => {
 
   const handleUpdatePlan = async (plan: Plan) => {
     try {
-      setPlans(plans.map((p) => (p.id === plan.id ? plan : p)));
+      console.log("Updating plan:", plan);
+
+      // Validation
+      if (!plan.name || !plan.displayName) {
+        setError("Name und Anzeigename sind erforderlich");
+        return;
+      }
+
+      if (plan.price < 0) {
+        setError("Preis kann nicht negativ sein");
+        return;
+      }
+
+      // Update in demo mode or make API call
+      setPlans(
+        plans.map((p) =>
+          p.id === plan.id
+            ? { ...plan, updated_at: new Date().toISOString() }
+            : p,
+        ),
+      );
       setEditingPlan(null);
+      setError("");
+
+      // Success message
+      setTimeout(() => {
+        alert(`✅ Plan "${plan.displayName}" wurde erfolgreich aktualisiert!`);
+      }, 100);
     } catch (err) {
+      console.error("Error updating plan:", err);
       setError("Fehler beim Aktualisieren des Plans");
     }
   };
@@ -412,9 +439,11 @@ const PlansManagement = () => {
   const PlanEditor = ({
     plan,
     onSave,
+    isEditing = false,
   }: {
     plan: Partial<Plan>;
     onSave: (plan: Plan) => void;
+    isEditing?: boolean;
   }) => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
@@ -423,10 +452,21 @@ const PlansManagement = () => {
           <Input
             id="name"
             value={plan.name || ""}
-            onChange={(e) => onSave({ ...plan, name: e.target.value } as Plan)}
+            onChange={(e) => {
+              const value = e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, "");
+              onSave({ ...plan, name: value } as Plan);
+            }}
             placeholder="z.B. pro"
             required
+            disabled={isEditing} // Plan ID should not be changeable when editing
           />
+          {isEditing && (
+            <p className="text-xs text-gray-500 mt-1">
+              Plan ID kann bei bestehenden Plänen nicht geändert werden
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="displayName">Anzeigename *</Label>
@@ -609,6 +649,7 @@ const PlansManagement = () => {
                 <PlanEditor
                   plan={newPlan}
                   onSave={(plan) => setNewPlan(plan)}
+                  isEditing={false}
                 />
                 <div className="flex justify-end space-x-2 mt-6 pt-6 border-t">
                   <Button
@@ -656,9 +697,35 @@ const PlansManagement = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setEditingPlan(plan)}>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            console.log("Opening edit dialog for plan:", plan);
+                            setEditingPlan({ ...plan });
+                          }}
+                        >
                           <Edit className="mr-2 h-4 w-4" />
                           Bearbeiten
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const updatedPlan = {
+                              ...plan,
+                              isActive: !plan.isActive,
+                            };
+                            handleUpdatePlan(updatedPlan);
+                          }}
+                        >
+                          {plan.isActive ? (
+                            <>
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Deaktivieren
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Aktivieren
+                            </>
+                          )}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() =>
@@ -809,7 +876,11 @@ const PlansManagement = () => {
                 Bearbeiten Sie Features, Limits und Einstellungen
               </DialogDescription>
             </DialogHeader>
-            <PlanEditor plan={editingPlan} onSave={setEditingPlan} />
+            <PlanEditor
+              plan={editingPlan}
+              onSave={setEditingPlan}
+              isEditing={true}
+            />
             <div className="flex justify-end space-x-2 mt-6 pt-6 border-t">
               <Button
                 type="button"
