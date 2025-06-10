@@ -351,6 +351,35 @@ const SuperAdminDashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-4">
+            {localStorage.getItem("demo_mode") === "true" && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    localStorage.removeItem("demo_custom_tenants");
+                    window.location.reload();
+                  }}
+                >
+                  Debug: Clear Demo Data
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    console.log("=== DEBUG INFO ===");
+                    console.log(
+                      "Custom tenants:",
+                      localStorage.getItem("demo_custom_tenants"),
+                    );
+                    console.log("Current tenants state:", tenants);
+                    loadData(); // Refresh data
+                  }}
+                >
+                  Debug: Refresh
+                </Button>
+              </>
+            )}
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Abmelden
