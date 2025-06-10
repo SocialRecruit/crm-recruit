@@ -59,6 +59,7 @@ import {
   TrendingUp,
   Eye,
   Crown,
+  Loader2,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -140,6 +141,7 @@ const SuperAdminDashboard = () => {
 
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
+
     console.log("Creating tenant:", newTenant);
 
     // Validierung
@@ -163,63 +165,8 @@ const SuperAdminDashboard = () => {
 
     try {
       setError("");
-      console.log("API call: createTenant");
-      const createdTenant = await api.createTenant(newTenant);
-      console.log("Tenant created successfully:", createdTenant);
+      setLoading(true);
 
-      setShowCreateDialog(false);
-      setNewTenant({
-        name: "",
-        subdomain: "",
-        domain: "",
-        plan: "free",
-        admin_email: "",
-        admin_password: "",
-        admin_username: "admin",
-      });
-
-      await loadData();
-
-      // Success message
-      setError("");
-      alert(`Tenant "${newTenant.name}" wurde erfolgreich erstellt!`);
-    } catch (err) {
-      console.error("Error creating tenant:", err);
-      setError(
-        `Fehler beim Erstellen des Tenants: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
-      );
-    }
-  };
-
-  const handleCreateTenant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    console.log("Creating tenant:", newTenant);
-
-    // Validierung
-    if (
-      !newTenant.name ||
-      !newTenant.subdomain ||
-      !newTenant.admin_email ||
-      !newTenant.admin_password
-    ) {
-      setError("Bitte füllen Sie alle Pflichtfelder aus");
-      setLoading(false);
-      return;
-    }
-
-    // Subdomain validation
-    if (!/^[a-z0-9-]+$/.test(newTenant.subdomain)) {
-      setError(
-        "Subdomain darf nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
-      );
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setError("");
       console.log("API call: createTenant");
       const createdTenant = await api.createTenant(newTenant);
       console.log("Tenant created successfully:", createdTenant);
@@ -255,6 +202,21 @@ const SuperAdminDashboard = () => {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteTenant = async (id: number, name: string) => {
+    if (
+      window.confirm(
+        `Sind Sie sicher, dass Sie den Tenant "${name}" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.`,
+      )
+    ) {
+      try {
+        await api.deleteTenant(id);
+        await loadData();
+      } catch (err) {
+        setError("Fehler beim Löschen des Tenants");
+      }
     }
   };
 
@@ -724,6 +686,7 @@ const SuperAdminDashboard = () => {
               </Card>
             </TabsContent>
 
+            {/* Stats Tab */}
             <TabsContent value="stats">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
