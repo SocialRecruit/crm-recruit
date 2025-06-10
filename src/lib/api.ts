@@ -547,35 +547,66 @@ class ApiClient {
     admin_password: string;
     admin_username: string;
   }): Promise<Tenant> {
-    console.log("API: Creating tenant", tenant);
+    console.log("=== API: Creating tenant ===");
+    console.log("Tenant data:", tenant);
+    console.log("Demo mode:", localStorage.getItem("demo_mode"));
 
-    if (localStorage.getItem("demo_mode") === "true") {
-      console.log("API: Demo mode - creating tenant locally");
-      const newTenant = {
-        id: Math.floor(Math.random() * 1000) + 100,
-        name: tenant.name,
-        subdomain: tenant.subdomain,
-        domain: tenant.domain,
-        status: "active" as const,
-        plan: tenant.plan as any,
-        max_users: 50,
-        max_pages: 100,
-        user_count: 1,
-        page_count: 0,
-        submission_count: 0,
-        created_at: new Date().toISOString(),
-        settings: { timezone: "Europe/Berlin", language: "de" },
-        branding: { primary_color: "#3b82f6", company_name: tenant.name },
-      };
+    try {
+      if (localStorage.getItem("demo_mode") === "true") {
+        console.log("API: Using demo mode");
 
-      console.log("API: Tenant created successfully", newTenant);
-      return Promise.resolve(newTenant);
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        const planLimits = {
+          free: { users: 5, pages: 10 },
+          basic: { users: 25, pages: 50 },
+          pro: { users: 100, pages: 200 },
+          enterprise: { users: 999, pages: 999 },
+        };
+
+        const limits =
+          planLimits[tenant.plan as keyof typeof planLimits] || planLimits.free;
+
+        const newTenant: Tenant = {
+          id: Math.floor(Math.random() * 1000) + 100,
+          name: tenant.name,
+          subdomain: tenant.subdomain,
+          domain: tenant.domain,
+          status: "active",
+          plan: tenant.plan as any,
+          max_users: limits.users,
+          max_pages: limits.pages,
+          user_count: 1, // Admin user
+          page_count: 0,
+          submission_count: 0,
+          created_at: new Date().toISOString(),
+          settings: {
+            timezone: "Europe/Berlin",
+            language: "de",
+            admin_email: tenant.admin_email,
+            admin_username: tenant.admin_username,
+          },
+          branding: {
+            primary_color: "#3b82f6",
+            company_name: tenant.name,
+            logo_url: "",
+          },
+        };
+
+        console.log("API: Demo tenant created successfully:", newTenant);
+        return newTenant;
+      }
+
+      console.log("API: Making real API call to /admin/tenants");
+      return this.request<Tenant>("/admin/tenants", {
+        method: "POST",
+        body: JSON.stringify(tenant),
+      });
+    } catch (error) {
+      console.error("API: Create tenant failed:", error);
+      throw error;
     }
-
-    return this.request<Tenant>("/admin/tenants", {
-      method: "POST",
-      body: JSON.stringify(tenant),
-    });
   }
 
   async updateTenant(id: number, tenant: Partial<Tenant>): Promise<Tenant> {
@@ -596,30 +627,54 @@ class ApiClient {
   async impersonateTenant(
     tenantId: number,
   ): Promise<{ token: string; tenant: any }> {
-    if (localStorage.getItem("demo_mode") === "true") {
-      // Switch to tenant admin demo mode
-      const demoToken = "demo_tenant_impersonate_" + Date.now();
-      localStorage.setItem("auth_token", demoToken);
-      localStorage.setItem("user_type", "tenant_admin");
+    console.log("=== API: Impersonating tenant ===");
+    console.log("Tenant ID:", tenantId);
+    console.log("Demo mode:", localStorage.getItem("demo_mode"));
 
-      return Promise.resolve({
-        token: demoToken,
-        tenant: {
-          id: tenantId,
-          name: "Demo Tenant",
-          subdomain: "demo",
-          settings: { timezone: "Europe/Berlin", language: "de" },
-          branding: { primary_color: "#3b82f6", company_name: "Demo Tenant" },
+    try {
+      if (localStorage.getItem("demo_mode") === "true") {
+        console.log("API: Using demo impersonation");
+
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Get tenant info from demo data
+        const demoTenants = await this.getSuperAdminTenants();
+        const targetTenant = demoTenants.find((t) => t.id === tenantId);
+
+        if (!targetTenant) {
+          throw new Error(`Tenant with ID ${tenantId} not found`);
+        }
+
+        const demoToken =
+          "demo_tenant_impersonate_" + tenantId + "_" + Date.now();
+
+        const response = {
+          token: demoToken,
+          tenant: {
+            id: targetTenant.id,
+            name: targetTenant.name,
+            subdomain: targetTenant.subdomain,
+            settings: targetTenant.settings,
+            branding: targetTenant.branding,
+          },
+        };
+
+        console.log("API: Demo impersonation successful:", response);
+        return response;
+      }
+
+      console.log("API: Making real impersonation call");
+      return this.request<{ token: string; tenant: any }>(
+        `/admin/tenants/${tenantId}/impersonate`,
+        {
+          method: "POST",
         },
-      });
+      );
+    } catch (error) {
+      console.error("API: Impersonation failed:", error);
+      throw error;
     }
-
-    return this.request<{ token: string; tenant: any }>(
-      `/admin/tenants/${tenantId}/impersonate`,
-      {
-        method: "POST",
-      },
-    );
   }
 
   async stopImpersonation(): Promise<{ token: string }> {

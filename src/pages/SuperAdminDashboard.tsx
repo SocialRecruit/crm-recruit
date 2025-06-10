@@ -102,6 +102,7 @@ const SuperAdminDashboard = () => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newTenant, setNewTenant] = useState({
@@ -142,7 +143,10 @@ const SuperAdminDashboard = () => {
   const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log("Creating tenant:", newTenant);
+    console.log("=== CREATING TENANT DEBUG ===");
+    console.log("New tenant data:", newTenant);
+    console.log("Demo mode:", localStorage.getItem("demo_mode"));
+    console.log("Auth token:", localStorage.getItem("auth_token"));
 
     // Validierung
     if (
@@ -151,7 +155,13 @@ const SuperAdminDashboard = () => {
       !newTenant.admin_email ||
       !newTenant.admin_password
     ) {
-      setError("Bitte füllen Sie alle Pflichtfelder aus");
+      const missingFields = [];
+      if (!newTenant.name) missingFields.push("Name");
+      if (!newTenant.subdomain) missingFields.push("Subdomain");
+      if (!newTenant.admin_email) missingFields.push("Admin E-Mail");
+      if (!newTenant.admin_password) missingFields.push("Admin Passwort");
+
+      setError(`Fehlende Pflichtfelder: ${missingFields.join(", ")}`);
       return;
     }
 
@@ -163,19 +173,41 @@ const SuperAdminDashboard = () => {
       return;
     }
 
+    // Check if subdomain already exists
+    const existingTenant = tenants.find(
+      (t) => t.subdomain === newTenant.subdomain,
+    );
+    if (existingTenant) {
+      setError(`Subdomain "${newTenant.subdomain}" ist bereits vergeben`);
+      return;
+    }
+
     try {
       setError("");
       setLoading(true);
 
-      console.log("API call: createTenant");
+      console.log("=== API CALL START ===");
       const createdTenant = await api.createTenant(newTenant);
-      console.log("Tenant created successfully:", createdTenant);
+      console.log("=== TENANT CREATED ===", createdTenant);
 
-      // Add tenant to local state immediately for demo mode
-      setTenants((prevTenants) => [...prevTenants, createdTenant]);
+      // Add tenant to local state immediately
+      setTenants((prevTenants) => {
+        const updated = [...prevTenants, createdTenant];
+        console.log("Updated tenants list:", updated);
+        return updated;
+      });
 
-      setShowCreateDialog(false);
-      setNewTenant({
+      // Update stats
+      if (stats) {
+        setStats({
+          ...stats,
+          total_tenants: stats.total_tenants + 1,
+          active_tenants: stats.active_tenants + 1,
+        });
+      }
+
+      // Reset form
+      const resetData = {
         name: "",
         subdomain: "",
         domain: "",
@@ -183,22 +215,28 @@ const SuperAdminDashboard = () => {
         admin_email: "",
         admin_password: "",
         admin_username: "admin",
-      });
+      };
 
-      // Reload data to get fresh stats
-      await loadData();
-
-      // Success message
+      setNewTenant(resetData);
+      setShowCreateDialog(false);
       setError("");
-      setTimeout(() => {
-        alert(
-          `✅ Tenant "${createdTenant.name}" wurde erfolgreich erstellt!\n\nSubdomain: ${createdTenant.subdomain}\nAdmin: ${newTenant.admin_username}`,
-        );
-      }, 100);
+
+      // Success notification
+      alert(
+        `✅ Tenant "${createdTenant.name}" wurde erfolgreich erstellt!\n\n` +
+          `Subdomain: ${createdTenant.subdomain}\n` +
+          `Admin Login: ${newTenant.admin_username}\n` +
+          `Plan: ${createdTenant.plan}`,
+      );
     } catch (err) {
-      console.error("Error creating tenant:", err);
+      console.error("=== CREATE TENANT ERROR ===", err);
+      console.error(
+        "Error stack:",
+        err instanceof Error ? err.stack : "No stack",
+      );
+
       setError(
-        `Fehler beim Erstellen des Tenants: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
+        `Fehler beim Erstellen: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
       );
     } finally {
       setLoading(false);
@@ -222,11 +260,34 @@ const SuperAdminDashboard = () => {
 
   const handleImpersonateTenant = async (id: number) => {
     try {
+      console.log("=== IMPERSONATING TENANT ===");
+      console.log("Tenant ID:", id);
+      console.log("Current user:", user);
+      console.log("Demo mode:", localStorage.getItem("demo_mode"));
+
+      const tenant = tenants.find((t) => t.id === id);
+      console.log("Target tenant:", tenant);
+
+      setError("");
+      setLoading(true);
+
       const response = await api.impersonateTenant(id);
+      console.log("Impersonation response:", response);
+
+      // Update auth token
       localStorage.setItem("auth_token", response.token);
-      navigate("/dashboard");
+      localStorage.setItem("user_type", "tenant_admin");
+
+      console.log("Navigating to tenant dashboard...");
+
+      // Force page reload to ensure clean state
+      window.location.href = "/dashboard";
     } catch (err) {
-      setError("Fehler beim Einloggen in den Tenant");
+      console.error("=== IMPERSONATION ERROR ===", err);
+      setError(
+        `Fehler beim Einloggen in Tenant: ${err instanceof Error ? err.message : "Unbekannter Fehler"}`,
+      );
+      setLoading(false);
     }
   };
 
@@ -651,18 +712,34 @@ const SuperAdminDashboard = () => {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() =>
-                                    handleImpersonateTenant(tenant.id)
-                                  }
+                                  onClick={() => {
+                                    setActionLoading(tenant.id);
+                                    handleImpersonateTenant(tenant.id);
+                                  }}
+                                  disabled={actionLoading === tenant.id}
                                 >
-                                  <LogIn className="mr-2 h-4 w-4" />
+                                  {actionLoading === tenant.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <LogIn className="mr-2 h-4 w-4" />
+                                  )}
                                   Als Tenant einloggen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    alert(
+                                      `Tenant Details:\n\nName: ${tenant.name}\nSubdomain: ${tenant.subdomain}\nPlan: ${tenant.plan}\nStatus: ${tenant.status}\nBenutzer: ${tenant.user_count}/${tenant.max_users}\nSeiten: ${tenant.page_count}/${tenant.max_pages}`,
+                                    );
+                                  }}
+                                >
                                   <Eye className="mr-2 h-4 w-4" />
                                   Details anzeigen
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    alert("Tenant bearbeiten coming soon...");
+                                  }}
+                                >
                                   <Edit className="mr-2 h-4 w-4" />
                                   Bearbeiten
                                 </DropdownMenuItem>
