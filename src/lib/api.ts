@@ -6,8 +6,33 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  role: "admin" | "user";
+  role: "super_admin" | "tenant_admin" | "admin" | "user";
+  tenant_id?: number;
   created_at: string;
+  tenant?: {
+    id: number;
+    name: string;
+    subdomain: string;
+    settings: any;
+    branding: any;
+  };
+}
+
+export interface Tenant {
+  id: number;
+  name: string;
+  subdomain: string;
+  domain?: string;
+  status: "active" | "inactive" | "suspended";
+  plan: "free" | "basic" | "pro" | "enterprise";
+  max_users: number;
+  max_pages: number;
+  user_count?: number;
+  page_count?: number;
+  submission_count?: number;
+  created_at: string;
+  settings: any;
+  branding: any;
 }
 
 export interface LandingPage {
@@ -176,7 +201,7 @@ class ApiClient {
                   },
                   { emoji: "📚", text: "Pflege und Verwaltung von Sammlungen" },
                   { emoji: "👥", text: "Durchführung von Führungen" },
-                  { emoji: "����", text: "Administrative Tätigkeiten" },
+                  { emoji: "💼", text: "Administrative Tätigkeiten" },
                 ],
               },
               order: 2,
@@ -326,6 +351,162 @@ class ApiClient {
 
   async deleteUser(id: number): Promise<void> {
     await this.request(`/users/${id}`, { method: "DELETE" });
+  }
+
+  // Multi-Tenant Management (Super Admin only)
+  async getSuperAdminTenants(): Promise<Tenant[]> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return [
+        {
+          id: 1,
+          name: "WWS-Strube Demo",
+          subdomain: "demo",
+          status: "active",
+          plan: "pro",
+          max_users: 50,
+          max_pages: 100,
+          user_count: 2,
+          page_count: 1,
+          submission_count: 3,
+          created_at: new Date().toISOString(),
+          settings: { timezone: "Europe/Berlin", language: "de" },
+          branding: { primary_color: "#3b82f6", company_name: "WWS-Strube" },
+        },
+      ];
+    }
+
+    return this.request<Tenant[]>("/admin/tenants");
+  }
+
+  async getSuperAdminStats(): Promise<any> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return {
+        total_tenants: 1,
+        active_tenants: 1,
+        total_users: 2,
+        total_pages: 1,
+        total_submissions: 3,
+        plans: { pro: 1 },
+        recent_tenants: [
+          {
+            id: 1,
+            name: "WWS-Strube Demo",
+            subdomain: "demo",
+            status: "active",
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
+    return this.request<any>("/admin/stats");
+  }
+
+  async createTenant(tenant: {
+    name: string;
+    subdomain: string;
+    domain?: string;
+    plan: string;
+    admin_email: string;
+    admin_password: string;
+    admin_username: string;
+  }): Promise<Tenant> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return Promise.resolve({
+        id: 2,
+        name: tenant.name,
+        subdomain: tenant.subdomain,
+        status: "active",
+        plan: tenant.plan as any,
+        max_users: 50,
+        max_pages: 100,
+        created_at: new Date().toISOString(),
+        settings: {},
+        branding: {},
+      });
+    }
+
+    return this.request<Tenant>("/admin/tenants", {
+      method: "POST",
+      body: JSON.stringify(tenant),
+    });
+  }
+
+  async updateTenant(id: number, tenant: Partial<Tenant>): Promise<Tenant> {
+    return this.request<Tenant>(`/admin/tenants/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(tenant),
+    });
+  }
+
+  async deleteTenant(id: number): Promise<void> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return Promise.resolve();
+    }
+
+    await this.request(`/admin/tenants/${id}`, { method: "DELETE" });
+  }
+
+  async impersonateTenant(
+    tenantId: number,
+  ): Promise<{ token: string; tenant: any }> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return Promise.resolve({
+        token: "demo_impersonation_token",
+        tenant: {
+          id: tenantId,
+          name: "Demo Tenant",
+          subdomain: "demo",
+        },
+      });
+    }
+
+    return this.request<{ token: string; tenant: any }>(
+      `/admin/tenants/${tenantId}/impersonate`,
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  async stopImpersonation(): Promise<{ token: string }> {
+    return this.request<{ token: string }>(
+      "/admin/tenants/stop-impersonation",
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  // Tenant Selection for Login
+  async getAvailableTenants(): Promise<Tenant[]> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      return [
+        {
+          id: 1,
+          name: "WWS-Strube Demo",
+          subdomain: "demo",
+          status: "active",
+          plan: "pro",
+          max_users: 50,
+          max_pages: 100,
+          created_at: new Date().toISOString(),
+          settings: {},
+          branding: { primary_color: "#3b82f6", company_name: "WWS-Strube" },
+        },
+      ];
+    }
+
+    return this.request<Tenant[]>("/auth/tenants");
+  }
+
+  async switchTenant(
+    tenantId: number,
+  ): Promise<{ token: string; tenant: any }> {
+    return this.request<{ token: string; tenant: any }>("/auth/switch-tenant", {
+      method: "POST",
+      body: JSON.stringify({ tenant_id: tenantId }),
+    });
   }
 }
 

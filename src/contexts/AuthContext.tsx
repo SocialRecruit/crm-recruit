@@ -4,7 +4,11 @@ import { User, api } from "@/lib/api";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (
+    username: string,
+    password: string,
+    tenantId?: number,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -40,8 +44,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const response = await api.login({ username, password });
+  const login = async (
+    username: string,
+    password: string,
+    tenantId?: number,
+  ) => {
+    const loginData: any = { username, password };
+    if (tenantId) {
+      loginData.tenant_id = tenantId;
+    }
+
+    const response = await api.login(loginData);
     setUser(response.user);
   };
 

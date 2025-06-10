@@ -64,25 +64,57 @@ class Database {
 function setupDatabase() {
     $db = Database::getInstance();
     
-    // Create users table
+    // Create tenants table
     $db->execute("
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE IF NOT EXISTS tenants (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) UNIQUE NOT NULL,
-            email VARCHAR(100) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            role ENUM('admin', 'user') DEFAULT 'user',
+            name VARCHAR(255) NOT NULL,
+            subdomain VARCHAR(100) UNIQUE NOT NULL,
+            domain VARCHAR(255),
+            status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
+            settings JSON,
+            branding JSON,
+            plan ENUM('free', 'basic', 'pro', 'enterprise') DEFAULT 'free',
+            max_users INT DEFAULT 5,
+            max_pages INT DEFAULT 10,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_subdomain (subdomain),
+            INDEX idx_status (status),
+            INDEX idx_plan (plan)
         )
     ");
     
-    // Create landing_pages table
+    // Create users table with tenant support
+    $db->execute("
+        CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT,
+            username VARCHAR(50) NOT NULL,
+            email VARCHAR(100) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            role ENUM('super_admin', 'tenant_admin', 'admin', 'user') DEFAULT 'user',
+            is_active BOOLEAN DEFAULT TRUE,
+            last_login TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_user_per_tenant (tenant_id, username),
+            UNIQUE KEY unique_email_per_tenant (tenant_id, email),
+            INDEX idx_tenant_id (tenant_id),
+            INDEX idx_username (username),
+            INDEX idx_email (email),
+            INDEX idx_role (role)
+        )
+    ");
+    
+    // Create landing_pages table with tenant support
     $db->execute("
         CREATE TABLE IF NOT EXISTS landing_pages (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             title VARCHAR(255) NOT NULL,
-            slug VARCHAR(255) UNIQUE NOT NULL,
+            slug VARCHAR(255) NOT NULL,
             header_image VARCHAR(500),
             header_text TEXT,
             header_overlay_color VARCHAR(7) DEFAULT '#000000',
@@ -93,32 +125,39 @@ function setupDatabase() {
             user_id INT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE KEY unique_slug_per_tenant (tenant_id, slug),
+            INDEX idx_tenant_id (tenant_id),
             INDEX idx_slug (slug),
             INDEX idx_status (status),
             INDEX idx_user_id (user_id)
         )
     ");
     
-    // Create form_submissions table
+    // Create form_submissions table with tenant support
     $db->execute("
         CREATE TABLE IF NOT EXISTS form_submissions (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             page_id INT NOT NULL,
             data JSON NOT NULL,
             ip_address VARCHAR(45),
             user_agent TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
             FOREIGN KEY (page_id) REFERENCES landing_pages(id) ON DELETE CASCADE,
+            INDEX idx_tenant_id (tenant_id),
             INDEX idx_page_id (page_id),
             INDEX idx_created_at (created_at)
         )
     ");
     
-    // Create uploads table
+    // Create uploads table with tenant support
     $db->execute("
         CREATE TABLE IF NOT EXISTS uploads (
             id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
             filename VARCHAR(255) NOT NULL,
             original_name VARCHAR(255) NOT NULL,
             file_size INT NOT NULL,
@@ -126,34 +165,85 @@ function setupDatabase() {
             url VARCHAR(500) NOT NULL,
             user_id INT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_tenant_id (tenant_id),
             INDEX idx_user_id (user_id),
             INDEX idx_created_at (created_at)
         )
     ");
     
-    // Create auth_tokens table for JWT blacklisting
+    // Create auth_tokens table with tenant support
     $db->execute("
         CREATE TABLE IF NOT EXISTS auth_tokens (
             id INT AUTO_INCREMENT PRIMARY KEY,
             token_hash VARCHAR(255) NOT NULL,
             user_id INT NOT NULL,
+            tenant_id INT,
             expires_at TIMESTAMP NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
             INDEX idx_token_hash (token_hash),
-            INDEX idx_expires_at (expires_at)
+            INDEX idx_expires_at (expires_at),
+            INDEX idx_user_id (user_id),
+            INDEX idx_tenant_id (tenant_id)
         )
     ");
     
-    // Create default admin user if no users exist
-    $userCount = $db->fetch("SELECT COUNT(*) as count FROM users")['count'];
-    if ($userCount == 0) {
+    // Create tenant_invitations table
+    $db->execute("
+        CREATE TABLE IF NOT EXISTS tenant_invitations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            tenant_id INT NOT NULL,
+            email VARCHAR(100) NOT NULL,
+            role ENUM('tenant_admin', 'admin', 'user') DEFAULT 'user',
+            token VARCHAR(255) NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used_at TIMESTAMP NULL,
+            created_by INT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_token (token),
+            INDEX idx_expires_at (expires_at),
+            INDEX idx_tenant_id (tenant_id)
+        )
+    ");
+    
+    // Create default tenants and super admin
+    $tenantCount = $db->fetch("SELECT COUNT(*) as count FROM tenants")['count'];
+    if ($tenantCount == 0) {
+        // Create default tenant
+        $db->execute("
+            INSERT INTO tenants (name, subdomain, status, settings, branding, plan, max_users, max_pages) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ", [
+            'WWS-Strube Demo',
+            'demo',
+            'active',
+            json_encode(['timezone' => 'Europe/Berlin', 'language' => 'de']),
+            json_encode(['primary_color' => '#3b82f6', 'logo_url' => '', 'company_name' => 'WWS-Strube']),
+            'pro',
+            50,
+            100
+        ]);
+        
+        $defaultTenantId = $db->lastInsertId();
+        
+        // Create super admin (no tenant)
+        $superAdminPassword = password_hash('superadmin123', PASSWORD_DEFAULT);
+        $db->execute("
+            INSERT INTO users (tenant_id, username, email, password_hash, role) 
+            VALUES (NULL, 'superadmin', 'superadmin@system.local', ?, 'super_admin')
+        ", [$superAdminPassword]);
+        
+        // Create default tenant admin
         $defaultPassword = password_hash('admin123', PASSWORD_DEFAULT);
         $db->execute("
-            INSERT INTO users (username, email, password_hash, role) 
-            VALUES ('admin', 'admin@wws-strube.de', ?, 'admin')
-        ", [$defaultPassword]);
+            INSERT INTO users (tenant_id, username, email, password_hash, role) 
+            VALUES (?, 'admin', 'admin@wws-strube.de', ?, 'tenant_admin')
+        ", [$defaultTenantId, $defaultPassword]);
     }
 }
 

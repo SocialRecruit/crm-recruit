@@ -17,6 +17,7 @@ require_once 'controllers/PagesController.php';
 require_once 'controllers/UsersController.php';
 require_once 'controllers/UploadController.php';
 require_once 'controllers/SubmissionController.php';
+require_once 'controllers/TenantsController.php';
 
 // Get the request URI and method
 $request_uri = $_SERVER['REQUEST_URI'];
@@ -34,16 +35,74 @@ try {
             $controller = new AuthController();
             $controller->login();
             break;
-            
+
         case $path === '/auth/logout' && $request_method === 'POST':
             $controller = new AuthController();
             $controller->logout();
             break;
-            
+
         case $path === '/auth/me' && $request_method === 'GET':
             requireAuth();
             $controller = new AuthController();
             $controller->me();
+            break;
+
+        case $path === '/auth/tenants' && $request_method === 'GET':
+            $controller = new AuthController();
+            $controller->getTenants();
+            break;
+
+        case $path === '/auth/switch-tenant' && $request_method === 'POST':
+            requireAuth();
+            $controller = new AuthController();
+            $controller->switchTenant();
+            break;
+
+        case $path === '/auth/invite' && $request_method === 'POST':
+            requireAuth('tenant_admin');
+            $controller = new AuthController();
+            $controller->inviteUser();
+            break;
+
+        // Super Admin Tenant Management routes
+        case $path === '/admin/tenants' && $request_method === 'GET':
+            $controller = new TenantsController();
+            $controller->index();
+            break;
+
+        case preg_match('/^\/admin\/tenants\/(\d+)$/', $path, $matches) && $request_method === 'GET':
+            $controller = new TenantsController();
+            $controller->show($matches[1]);
+            break;
+
+        case $path === '/admin/tenants' && $request_method === 'POST':
+            $controller = new TenantsController();
+            $controller->create();
+            break;
+
+        case preg_match('/^\/admin\/tenants\/(\d+)$/', $path, $matches) && $request_method === 'PUT':
+            $controller = new TenantsController();
+            $controller->update($matches[1]);
+            break;
+
+        case preg_match('/^\/admin\/tenants\/(\d+)$/', $path, $matches) && $request_method === 'DELETE':
+            $controller = new TenantsController();
+            $controller->delete($matches[1]);
+            break;
+
+        case preg_match('/^\/admin\/tenants\/(\d+)\/impersonate$/', $path, $matches) && $request_method === 'POST':
+            $controller = new TenantsController();
+            $controller->impersonate($matches[1]);
+            break;
+
+        case $path === '/admin/tenants/stop-impersonation' && $request_method === 'POST':
+            $controller = new TenantsController();
+            $controller->stopImpersonation();
+            break;
+
+        case $path === '/admin/stats' && $request_method === 'GET':
+            $controller = new TenantsController();
+            $controller->getStats();
             break;
 
         // Pages routes
@@ -52,30 +111,30 @@ try {
             $controller = new PagesController();
             $controller->index();
             break;
-            
+
         case preg_match('/^\/pages\/(\d+)$/', $path, $matches) && $request_method === 'GET':
             requireAuth();
             $controller = new PagesController();
             $controller->show($matches[1]);
             break;
-            
+
         case preg_match('/^\/pages\/slug\/(.+)$/', $path, $matches) && $request_method === 'GET':
             $controller = new PagesController();
             $controller->showBySlug($matches[1]);
             break;
-            
+
         case $path === '/pages' && $request_method === 'POST':
             requireAuth();
             $controller = new PagesController();
             $controller->create();
             break;
-            
+
         case preg_match('/^\/pages\/(\d+)$/', $path, $matches) && $request_method === 'PUT':
             requireAuth();
             $controller = new PagesController();
             $controller->update($matches[1]);
             break;
-            
+
         case preg_match('/^\/pages\/(\d+)$/', $path, $matches) && $request_method === 'DELETE':
             requireAuth();
             $controller = new PagesController();
@@ -88,19 +147,19 @@ try {
             $controller = new UsersController();
             $controller->index();
             break;
-            
+
         case $path === '/users' && $request_method === 'POST':
             requireAuth('admin');
             $controller = new UsersController();
             $controller->create();
             break;
-            
+
         case preg_match('/^\/users\/(\d+)$/', $path, $matches) && $request_method === 'PUT':
             requireAuth('admin');
             $controller = new UsersController();
             $controller->update($matches[1]);
             break;
-            
+
         case preg_match('/^\/users\/(\d+)$/', $path, $matches) && $request_method === 'DELETE':
             requireAuth('admin');
             $controller = new UsersController();
@@ -113,7 +172,7 @@ try {
             $controller = new UploadController();
             $controller->upload();
             break;
-            
+
         case $path === '/gallery' && $request_method === 'GET':
             requireAuth();
             $controller = new UploadController();
@@ -125,7 +184,7 @@ try {
             $controller = new SubmissionController();
             $controller->submit();
             break;
-            
+
         case $path === '/submissions' && $request_method === 'GET':
             requireAuth();
             $controller = new SubmissionController();

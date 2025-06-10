@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import PageBuilder from "./pages/PageBuilder";
 import LandingPage from "./pages/LandingPage";
 import Submissions from "./pages/Submissions";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,19 +29,35 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />}
+        element={
+          !isAuthenticated ? (
+            <Login />
+          ) : (
+            <Navigate
+              to={user?.role === "super_admin" ? "/super-admin" : "/dashboard"}
+            />
+          )
+        }
       />
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/super-admin"
+        element={
+          <ProtectedRoute>
+            <SuperAdminDashboard />
           </ProtectedRoute>
         }
       />
@@ -69,7 +86,14 @@ const AppRoutes = () => {
         }
       />
       <Route path="/jobs/:slug" element={<LandingPage />} />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route
+        path="/"
+        element={
+          <Navigate
+            to={user?.role === "super_admin" ? "/super-admin" : "/dashboard"}
+          />
+        }
+      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

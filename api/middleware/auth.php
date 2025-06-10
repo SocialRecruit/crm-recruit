@@ -65,15 +65,45 @@ function getCurrentUser() {
     }
     
     $db = Database::getInstance();
-    $user = $db->fetch(
-        "SELECT id, username, email, role, created_at FROM users WHERE id = ?",
-        [$payload['user_id']]
-    );
+    $user = $db->fetch("
+        SELECT u.*, t.name as tenant_name, t.subdomain, t.status as tenant_status, t.settings as tenant_settings, t.branding as tenant_branding
+        FROM users u 
+        LEFT JOIN tenants t ON u.tenant_id = t.id 
+        WHERE u.id = ?
+    ", [$payload['user_id']]);
     
-    return $user ?: null;
+    if (!$user) {
+        return null;
+    }
+    
+    // Parse JSON fields
+    if ($user['tenant_settings']) {
+        $user['tenant_settings'] = json_decode($user['tenant_settings'], true);
+    }
+    if ($user['tenant_branding']) {
+        $user['tenant_branding'] = json_decode($user['tenant_branding'], true);
+    }
+    
+    return $user;
 }
 
-function requireAuth($requiredRole = null) {
+function getCurrentTenant() {
+    $user = getCurrentUser();
+    if (!$user || !$user['tenant_id']) {
+        return null;
+    }
+    
+    return [
+        'id' => $user['tenant_id'],
+        'name' => $user['tenant_name'],
+        'subdomain' => $user['subdomain'],
+        'status' => $user['tenant_status'],
+        'settings' => $user['tenant_settings'],
+        'branding' => $user['tenant_branding']
+    ];
+}
+
+function requireAuth($requiredRole = null, $allowSuperAdmin = true) {
     $user = getCurrentUser();
     
     if (!$user) {
@@ -82,13 +112,91 @@ function requireAuth($requiredRole = null) {
         exit();
     }
     
-    if ($requiredRole && $user['role'] !== $requiredRole) {
+    // Super admins can access everything if allowed
+    if ($allowSuperAdmin && $user['role'] === 'super_admin') {
+        return $user;
+    }
+    
+    // Check if user's tenant is active (except for super admins)
+    if ($user['role'] !== 'super_admin' && $user['tenant_status'] !== 'active') {
         http_response_code(403);
-        echo json_encode(['error' => 'Forbidden']);
+        echo json_encode(['error' => 'Tenant is not active']);
+        exit();
+    }
+    
+    if ($requiredRole) {
+        $roleHierarchy = [
+            'user' => 1,
+            'admin' => 2,
+            'tenant_admin' => 3,
+            'super_admin' => 4
+        ];
+        
+        $userLevel = $roleHierarchy[$user['role']] ?? 0;
+        $requiredLevel = $roleHierarchy[$requiredRole] ?? 0;
+        
+        if ($userLevel < $requiredLevel) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Insufficient permissions']);
+            exit();
+        }
+    }
+    
+    return $user;
+}
+
+function requireSuperAdmin() {
+    $user = getCurrentUser();
+    
+    if (!$user || $user['role'] !== 'super_admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Super admin access required']);
         exit();
     }
     
     return $user;
+}
+
+function scopeToTenant($query, $params = [], $tenantIdField = 'tenant_id') {
+    $user = getCurrentUser();
+    
+    // Super admins can access all data
+    if ($user && $user['role'] === 'super_admin') {
+        return [$query, $params];
+    }
+    
+    // Regular users are scoped to their tenant
+    if ($user && $user['tenant_id']) {
+        if (stripos($query, 'WHERE') !== false) {
+            $query .= " AND {$tenantIdField} = ?";
+        } else {
+            $query .= " WHERE {$tenantIdField} = ?";
+        }
+        $params[] = $user['tenant_id'];
+    }
+    
+    return [$query, $params];
+}
+
+function impersonateTenant($tenantId) {
+    $user = requireSuperAdmin();
+    
+    $db = Database::getInstance();
+    $tenant = $db->fetch("SELECT * FROM tenants WHERE id = ?", [$tenantId]);
+    
+    if (!$tenant) {
+        jsonResponse(['error' => 'Tenant not found'], 404);
+    }
+    
+    // Create impersonation token
+    $token = JWTHelper::encode([
+        'user_id' => $user['id'],
+        'impersonating_tenant' => $tenantId,
+        'original_role' => $user['role'],
+        'impersonation' => true
+    ]);
+    
+    return $token;
 }
 
 function getRequestData() {
@@ -132,7 +240,7 @@ function generateSlug($text) {
     return trim($slug, '-');
 }
 
-function ensureUniqueSlug($slug, $table, $excludeId = null) {
+function ensureUniqueSlug($slug, $table, $excludeId = null, $tenantId = null) {
     $db = Database::getInstance();
     $originalSlug = $slug;
     $counter = 1;
@@ -140,6 +248,11 @@ function ensureUniqueSlug($slug, $table, $excludeId = null) {
     while (true) {
         $query = "SELECT id FROM {$table} WHERE slug = ?";
         $params = [$slug];
+        
+        if ($tenantId) {
+            $query .= " AND tenant_id = ?";
+            $params[] = $tenantId;
+        }
         
         if ($excludeId) {
             $query .= " AND id != ?";
@@ -155,5 +268,32 @@ function ensureUniqueSlug($slug, $table, $excludeId = null) {
         $slug = $originalSlug . '-' . $counter;
         $counter++;
     }
+}
+
+function getTenantFromRequest() {
+    // Try to get tenant from subdomain
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $parts = explode('.', $host);
+    
+    if (count($parts) > 2) {
+        $subdomain = $parts[0];
+        $db = Database::getInstance();
+        $tenant = $db->fetch("SELECT * FROM tenants WHERE subdomain = ? AND status = 'active'", [$subdomain]);
+        if ($tenant) {
+            return $tenant;
+        }
+    }
+    
+    // Try to get tenant from URL parameter
+    $tenantParam = $_GET['tenant'] ?? null;
+    if ($tenantParam) {
+        $db = Database::getInstance();
+        $tenant = $db->fetch("SELECT * FROM tenants WHERE subdomain = ? AND status = 'active'", [$tenantParam]);
+        if ($tenant) {
+            return $tenant;
+        }
+    }
+    
+    return null;
 }
 ?>
