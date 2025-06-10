@@ -512,14 +512,28 @@ class ApiClient {
 
   async getSuperAdminStats(): Promise<any> {
     if (localStorage.getItem("demo_mode") === "true") {
+      const customTenants = JSON.parse(
+        localStorage.getItem("demo_custom_tenants") || "[]",
+      );
+      const totalCustomTenants = customTenants.length;
+      const activeTenants =
+        3 + customTenants.filter((t: Tenant) => t.status === "active").length;
+
       return {
-        total_tenants: 2,
-        active_tenants: 2,
-        total_users: 7,
-        total_pages: 4,
+        total_tenants: 3 + totalCustomTenants,
+        active_tenants: activeTenants,
+        total_users: 7 + totalCustomTenants, // Each tenant gets 1 admin user
+        total_pages: 4 + totalCustomTenants * 0, // New tenants start with 0 pages
         total_submissions: 15,
-        plans: { basic: 1, pro: 1 },
+        plans: { basic: 1, pro: 1 + totalCustomTenants },
         recent_tenants: [
+          ...customTenants.slice(-2).map((t: Tenant) => ({
+            id: t.id,
+            name: t.name,
+            subdomain: t.subdomain,
+            status: t.status,
+            created_at: t.created_at,
+          })),
           {
             id: 2,
             name: "Beispiel Firma GmbH",
@@ -538,7 +552,7 @@ class ApiClient {
               Date.now() - 30 * 24 * 60 * 60 * 1000,
             ).toISOString(),
           },
-        ],
+        ].slice(0, 5), // Limit to 5 recent tenants
       };
     }
 
