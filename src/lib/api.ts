@@ -601,7 +601,18 @@ class ApiClient {
           },
         };
 
+        // Store the new tenant in localStorage for future impersonation
+        const existingCustomTenants = JSON.parse(
+          localStorage.getItem("demo_custom_tenants") || "[]",
+        );
+        existingCustomTenants.push(newTenant);
+        localStorage.setItem(
+          "demo_custom_tenants",
+          JSON.stringify(existingCustomTenants),
+        );
+
         console.log("API: Demo tenant created successfully:", newTenant);
+        console.log("API: Stored in localStorage for impersonation");
         return newTenant;
       }
 
