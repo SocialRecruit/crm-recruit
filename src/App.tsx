@@ -63,6 +63,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/super-admin/plans"
+        element={
+          <ProtectedRoute>
+            <PlansManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/page-builder/:id"
         element={
           <ProtectedRoute>
