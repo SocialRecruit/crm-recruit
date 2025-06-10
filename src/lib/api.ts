@@ -672,10 +672,31 @@ class ApiClient {
 
         // Get tenant info from demo data
         const demoTenants = await this.getSuperAdminTenants();
-        const targetTenant = demoTenants.find((t) => t.id === tenantId);
+        let targetTenant = demoTenants.find((t) => t.id === tenantId);
 
+        // If tenant not found, create a fallback demo tenant (for tenants shown in UI but not in storage)
         if (!targetTenant) {
-          throw new Error(`Tenant with ID ${tenantId} not found`);
+          console.log(
+            "API: Tenant not found in demo data, creating fallback tenant",
+          );
+          targetTenant = {
+            id: tenantId,
+            name: `Demo Tenant ${tenantId}`,
+            subdomain: `tenant-${tenantId}`,
+            status: "active",
+            plan: "pro",
+            max_users: 100,
+            max_pages: 200,
+            user_count: 1,
+            page_count: 0,
+            submission_count: 0,
+            created_at: new Date().toISOString(),
+            settings: { timezone: "Europe/Berlin", language: "de" },
+            branding: {
+              primary_color: "#3b82f6",
+              company_name: `Demo Tenant ${tenantId}`,
+            },
+          };
         }
 
         const demoToken =
