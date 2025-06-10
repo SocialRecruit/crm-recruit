@@ -441,7 +441,7 @@ class ApiClient {
   // Multi-Tenant Management (Super Admin only)
   async getSuperAdminTenants(): Promise<Tenant[]> {
     if (localStorage.getItem("demo_mode") === "true") {
-      return [
+      const defaultTenants: Tenant[] = [
         {
           id: 1,
           name: "WWS-Strube Demo",
@@ -498,6 +498,13 @@ class ApiClient {
           },
         },
       ];
+
+      // Get any custom tenants created during this session
+      const customTenants = JSON.parse(
+        localStorage.getItem("demo_custom_tenants") || "[]",
+      );
+
+      return [...defaultTenants, ...customTenants];
     }
 
     return this.request<Tenant[]>("/admin/tenants");
