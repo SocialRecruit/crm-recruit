@@ -46,6 +46,7 @@ const Login = () => {
       }
     } catch (err) {
       // If can't load tenants, might be demo mode or super admin
+      console.log("Could not load tenants, demo mode assumed");
     }
   };
 
@@ -55,37 +56,79 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Check if it's super admin login
-      if (username === "superadmin") {
-        setIsSuperAdmin(true);
-        await login(username, password);
+      console.log("Login attempt:", { username, isSuperAdmin });
+
+      if (username === "superadmin" && password === "superadmin123") {
+        console.log("Super admin login detected");
+        // Direct API call for super admin
+        const response = await api.login({
+          username: "superadmin",
+          password: "superadmin123",
+        });
+
+        localStorage.setItem("auth_token", response.token);
+        localStorage.setItem("demo_mode", "true");
+        localStorage.setItem("user_type", "super_admin");
+
+        // Manually set user in auth context
+        await login("superadmin", "superadmin123");
+        navigate("/super-admin");
+        return;
+      }
+
+      if (username === "admin" && password === "admin123") {
+        console.log("Tenant admin login detected");
+        // Direct API call for tenant admin
+        const response = await api.login({
+          username: "admin",
+          password: "admin123",
+          tenant_id: selectedTenant ? parseInt(selectedTenant) : 1,
+        });
+
+        localStorage.setItem("auth_token", response.token);
+        localStorage.setItem("demo_mode", "true");
+        localStorage.setItem("user_type", "tenant_admin");
+
+        // Manually set user in auth context
+        await login(
+          "admin",
+          "admin123",
+          selectedTenant ? parseInt(selectedTenant) : 1,
+        );
+        navigate("/dashboard");
+        return;
+      }
+
+      // Regular login for production
+      if (!selectedTenant && tenants.length > 1 && !isSuperAdmin) {
+        setError("Bitte wählen Sie einen Tenant aus");
+        return;
+      }
+
+      const tenantId = selectedTenant ? parseInt(selectedTenant) : undefined;
+      await login(username, password, tenantId);
+
+      // Navigation will be handled by auth context
+      const user = await api.getCurrentUser();
+      if (user.role === "super_admin") {
         navigate("/super-admin");
       } else {
-        // Regular tenant login
-        if (!selectedTenant && tenants.length > 1) {
-          setError("Bitte wählen Sie einen Tenant aus");
-          setLoading(false);
-          return;
-        }
-
-        const loginData = {
-          username,
-          password,
-          tenant_id: selectedTenant ? parseInt(selectedTenant) : undefined,
-        };
-
-        await login(
-          loginData.username,
-          loginData.password,
-          loginData.tenant_id,
-        );
         navigate("/dashboard");
       }
     } catch (err) {
-      setError("Ungültige Anmeldedaten");
+      console.error("Login error:", err);
+      setError(
+        "Ungültige Anmeldedaten. Versuchen Sie: superadmin/superadmin123 oder admin/admin123",
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setUsername(value);
+    setIsSuperAdmin(value === "superadmin");
   };
 
   return (
@@ -96,7 +139,9 @@ const Login = () => {
             Social Recruiting CRM
           </CardTitle>
           <CardDescription className="text-center">
-            Melden Sie sich an, um Ihre Landing Pages zu verwalten
+            {isSuperAdmin
+              ? "Super Administrator Anmeldung"
+              : "Melden Sie sich an, um Ihre Landing Pages zu verwalten"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -106,6 +151,17 @@ const Login = () => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            {/* Demo Credentials Info */}
+            <Alert>
+              <AlertDescription className="text-sm">
+                <strong>Demo Zugangsdaten:</strong>
+                <br />
+                Super Admin: superadmin / superadmin123
+                <br />
+                Tenant Admin: admin / admin123
+              </AlertDescription>
+            </Alert>
 
             {/* Tenant Selection - only show if multiple tenants and not super admin */}
             {tenants.length > 1 && !isSuperAdmin && (
@@ -143,15 +199,10 @@ const Login = () => {
                 id="username"
                 type="text"
                 value={username}
-                onChange={(e) => {
-                  setUsername(e.target.value);
-                  setIsSuperAdmin(e.target.value === "superadmin");
-                }}
+                onChange={handleUsernameChange}
                 required
                 disabled={loading}
-                placeholder={
-                  isSuperAdmin ? "Super Administrator" : "Ihr Benutzername"
-                }
+                placeholder={isSuperAdmin ? "superadmin" : "Ihr Benutzername"}
               />
               {isSuperAdmin && (
                 <div className="flex items-center gap-1 text-xs text-blue-600">
@@ -170,15 +221,13 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                placeholder={
-                  isSuperAdmin ? "Super Admin Passwort" : "Ihr Passwort"
-                }
+                placeholder={isSuperAdmin ? "superadmin123" : "Ihr Passwort"}
               />
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Anmelden
+              {isSuperAdmin ? "Als Super Admin anmelden" : "Anmelden"}
             </Button>
           </form>
         </CardContent>
