@@ -30,18 +30,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      api
-        .getCurrentUser()
-        .then(setUser)
-        .catch(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem("auth_token");
+      const demoMode = localStorage.getItem("demo_mode");
+
+      console.log("AuthProvider: Initializing auth", {
+        token: !!token,
+        demoMode,
+      });
+
+      if (token) {
+        try {
+          const currentUser = await api.getCurrentUser();
+          console.log("AuthProvider: Current user loaded", currentUser);
+          setUser(currentUser);
+        } catch (error) {
+          console.error("AuthProvider: Failed to load current user", error);
           localStorage.removeItem("auth_token");
-        })
-        .finally(() => setLoading(false));
-    } else {
+          localStorage.removeItem("demo_mode");
+          localStorage.removeItem("user_type");
+        }
+      }
+
       setLoading(false);
-    }
+    };
+
+    initAuth();
   }, []);
 
   const login = async (
@@ -49,18 +63,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     tenantId?: number,
   ) => {
-    const loginData: any = { username, password };
-    if (tenantId) {
-      loginData.tenant_id = tenantId;
-    }
+    try {
+      console.log("AuthProvider: Login attempt", { username, tenantId });
 
-    const response = await api.login(loginData);
-    setUser(response.user);
+      const loginData: any = { username, password };
+      if (tenantId) {
+        loginData.tenant_id = tenantId;
+      }
+
+      const response = await api.login(loginData);
+      console.log("AuthProvider: Login successful", response);
+
+      setUser(response.user);
+    } catch (error) {
+      console.error("AuthProvider: Login failed", error);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await api.logout();
-    setUser(null);
+    try {
+      await api.logout();
+    } catch (error) {
+      console.error("AuthProvider: Logout error", error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("demo_mode");
+      localStorage.removeItem("user_type");
+    }
   };
 
   const value = {
