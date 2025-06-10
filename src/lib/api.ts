@@ -346,6 +346,29 @@ class ApiClient {
   }
 
   async createPage(page: Partial<LandingPage>): Promise<LandingPage> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Simulate creating a new page in demo mode
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const newPage: LandingPage = {
+        id: Math.floor(Math.random() * 1000) + 100,
+        title: page.title || "Neue Demo Seite",
+        slug: page.slug || "neue-demo-seite",
+        header_image: page.header_image || "",
+        header_text: page.header_text || "Demo Header Text",
+        header_overlay_color: page.header_overlay_color || "#000000",
+        header_overlay_opacity: page.header_overlay_opacity ?? 0.5,
+        header_height: page.header_height || 400,
+        content_blocks: page.content_blocks || [],
+        status: page.status || "draft",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      return newPage;
+    }
+
     return this.request<LandingPage>("/pages", {
       method: "POST",
       body: JSON.stringify(page),
@@ -356,6 +379,29 @@ class ApiClient {
     id: number,
     page: Partial<LandingPage>,
   ): Promise<LandingPage> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Simulate updating a page in demo mode
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      const updatedPage: LandingPage = {
+        id: id,
+        title: page.title || `Demo Landing Page ${id}`,
+        slug: page.slug || `demo-page-${id}`,
+        header_image: page.header_image || "",
+        header_text: page.header_text || "Demo Header Text",
+        header_overlay_color: page.header_overlay_color || "#000000",
+        header_overlay_opacity: page.header_overlay_opacity ?? 0.5,
+        header_height: page.header_height || 400,
+        content_blocks: page.content_blocks || [],
+        status: page.status || "draft",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      return updatedPage;
+    }
+
     return this.request<LandingPage>(`/pages/${id}`, {
       method: "PUT",
       body: JSON.stringify(page),
