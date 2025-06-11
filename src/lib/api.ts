@@ -342,17 +342,62 @@ class ApiClient {
   }
 
   async getPageBySlug(slug: string): Promise<LandingPage> {
-    if (localStorage.getItem("demo_mode") === "true") {
-      // Return demo page data for any requested slug
-      return {
-        id: 1,
+    // Function to create demo page content
+    const createDemoPage = (slug: string) => {
+      const pageTemplates: { [key: string]: any } = {
+        'museumsmitarbeiter': {
+          title: "Museumsmitarbeiter gesucht",
+          header_text: "Werden Sie Teil unseres Teams im Museum",
+          content_blocks: [
+            {
+              id: "1",
+              type: "header",
+              content: { text: "Ihre Aufgaben als Museumsmitarbeiter" },
+              order: 1,
+            },
+            {
+              id: "2",
+              type: "list",
+              content: {
+                items: [
+                  { emoji: "🎨", text: "Betreuung von Ausstellungen und Besuchern" },
+                  { emoji: "📚", text: "Pflege und Verwaltung von Sammlungen" },
+                  { emoji: "👥", text: "Durchführung von Führungen" },
+                  { emoji: "💼", text: "Administrative Tätigkeiten" },
+                ],
+              },
+              order: 2,
+            },
+            {
+              id: "3",
+              type: "text",
+              content: {
+                text: "Wir bieten Ihnen eine abwechslungsreiche Tätigkeit in einem kulturell wertvollen Umfeld mit flexiblen Arbeitszeiten und einem freundlichen Team."
+              },
+              order: 3,
+            },
+            {
+              id: "4",
+              type: "form",
+              content: {
+                title: "Jetzt bewerben",
+                fields: [
+                  { name: "name", label: "Vollständiger Name", type: "text", required: true },
+                  { name: "email", label: "E-Mail-Adresse", type: "email", required: true },
+                  { name: "phone", label: "Telefonnummer", type: "tel", required: false },
+                  { name: "experience", label: "Berufserfahrung", type: "textarea", required: false },
+                  { name: "motivation", label: "Warum möchten Sie bei uns arbeiten?", type: "textarea", required: false }
+                ]
+              },
+              order: 4,
+            },
+          ],
+        }
+      };
+
+      const template = pageTemplates[slug] || {
         title: `Demo Seite: ${slug}`,
-        slug: slug,
-        header_image: "",
         header_text: "Willkommen bei unserer Demo Landing Page",
-        header_overlay_color: "#000000",
-        header_overlay_opacity: 0.5,
-        header_height: 400,
         content_blocks: [
           {
             id: "1",
@@ -364,7 +409,7 @@ class ApiClient {
             id: "2",
             type: "text",
             content: {
-              text: "Dies ist eine Demo Landing Page. In der echten Anwendung würden hier die tatsächlichen Inhalte angezeigt.",
+              text: "Dies ist eine Demo Landing Page. In der echten Anwendung würden hier die tatsächlichen Inhalte angezeigt."
             },
             order: 2,
           },
@@ -375,26 +420,46 @@ class ApiClient {
               title: "Jetzt bewerben",
               fields: [
                 { name: "name", label: "Name", type: "text", required: true },
-                {
-                  name: "email",
-                  label: "E-Mail",
-                  type: "email",
-                  required: true,
-                },
-                {
-                  name: "phone",
-                  label: "Telefon",
-                  type: "tel",
-                  required: false,
-                },
-                {
-                  name: "message",
-                  label: "Nachricht",
-                  type: "textarea",
-                  required: false,
-                },
-              ],
+                { name: "email", label: "E-Mail", type: "email", required: true },
+                { name: "phone", label: "Telefon", type: "tel", required: false },
+                { name: "message", label: "Nachricht", type: "textarea", required: false }
+              ]
             },
+            order: 3,
+          },
+        ],
+      };
+
+      return {
+        id: 1,
+        title: template.title,
+        slug: slug,
+        header_image: "",
+        header_text: template.header_text,
+        header_overlay_color: "#000000",
+        header_overlay_opacity: 0.5,
+        header_height: 400,
+        content_blocks: template.content_blocks,
+        status: "published",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    };
+
+    // Always try to provide demo content first (for demo purposes)
+    if (localStorage.getItem("demo_mode") === "true" || !localStorage.getItem("auth_token")) {
+      return createDemoPage(slug);
+    }
+
+    try {
+      return await this.request<LandingPage>(`/pages/slug/${slug}`);
+    } catch (error) {
+      // If API call fails, return demo content as fallback
+      console.log("API call failed, returning demo content for slug:", slug);
+      return createDemoPage(slug);
+    }
+  }
             order: 3,
           },
         ],
