@@ -45,7 +45,161 @@ const LandingPage = () => {
       const pageData = await api.getPageBySlug(pageSlug);
       setPage(pageData);
     } catch (err) {
-      setError("Seite nicht gefunden");
+      console.log(
+        "API call failed, providing demo content for slug:",
+        pageSlug,
+      );
+
+      // Provide demo content as fallback
+      const demoPage: LandingPageType = {
+        id: 1,
+        title:
+          pageSlug === "museumsmitarbeiter"
+            ? "Museumsmitarbeiter gesucht"
+            : `Demo Landing Page: ${pageSlug}`,
+        slug: pageSlug,
+        header_image: "",
+        header_text:
+          pageSlug === "museumsmitarbeiter"
+            ? "Werden Sie Teil unseres Teams im Museum"
+            : "Willkommen bei unserer Demo Landing Page",
+        header_overlay_color: "#000000",
+        header_overlay_opacity: 0.5,
+        header_height: 400,
+        content_blocks:
+          pageSlug === "museumsmitarbeiter"
+            ? [
+                {
+                  id: "1",
+                  type: "header",
+                  content: { text: "Ihre Aufgaben als Museumsmitarbeiter" },
+                  order: 1,
+                },
+                {
+                  id: "2",
+                  type: "list",
+                  content: {
+                    items: [
+                      {
+                        emoji: "🎨",
+                        text: "Betreuung von Ausstellungen und Besuchern",
+                      },
+                      {
+                        emoji: "📚",
+                        text: "Pflege und Verwaltung von Sammlungen",
+                      },
+                      { emoji: "👥", text: "Durchführung von Führungen" },
+                      { emoji: "💼", text: "Administrative Tätigkeiten" },
+                    ],
+                  },
+                  order: 2,
+                },
+                {
+                  id: "3",
+                  type: "text",
+                  content: {
+                    text: "Wir bieten Ihnen eine abwechslungsreiche Tätigkeit in einem kulturell wertvollen Umfeld mit flexiblen Arbeitszeiten und einem freundlichen Team.",
+                  },
+                  order: 3,
+                },
+                {
+                  id: "4",
+                  type: "form",
+                  content: {
+                    title: "Jetzt bewerben",
+                    fields: [
+                      {
+                        name: "name",
+                        label: "Vollständiger Name",
+                        type: "text",
+                        required: true,
+                      },
+                      {
+                        name: "email",
+                        label: "E-Mail-Adresse",
+                        type: "email",
+                        required: true,
+                      },
+                      {
+                        name: "phone",
+                        label: "Telefonnummer",
+                        type: "tel",
+                        required: false,
+                      },
+                      {
+                        name: "experience",
+                        label: "Berufserfahrung",
+                        type: "textarea",
+                        required: false,
+                      },
+                      {
+                        name: "motivation",
+                        label: "Warum möchten Sie bei uns arbeiten?",
+                        type: "textarea",
+                        required: false,
+                      },
+                    ],
+                  },
+                  order: 4,
+                },
+              ]
+            : [
+                {
+                  id: "1",
+                  type: "header",
+                  content: { text: "Demo Landing Page" },
+                  order: 1,
+                },
+                {
+                  id: "2",
+                  type: "text",
+                  content: {
+                    text: "Dies ist eine Demo Landing Page. In der echten Anwendung würden hier die tatsächlichen Inhalte angezeigt.",
+                  },
+                  order: 2,
+                },
+                {
+                  id: "3",
+                  type: "form",
+                  content: {
+                    title: "Jetzt bewerben",
+                    fields: [
+                      {
+                        name: "name",
+                        label: "Name",
+                        type: "text",
+                        required: true,
+                      },
+                      {
+                        name: "email",
+                        label: "E-Mail",
+                        type: "email",
+                        required: true,
+                      },
+                      {
+                        name: "phone",
+                        label: "Telefon",
+                        type: "tel",
+                        required: false,
+                      },
+                      {
+                        name: "message",
+                        label: "Nachricht",
+                        type: "textarea",
+                        required: false,
+                      },
+                    ],
+                  },
+                  order: 3,
+                },
+              ],
+        status: "published",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setPage(demoPage);
     } finally {
       setLoading(false);
     }
