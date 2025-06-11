@@ -342,6 +342,69 @@ class ApiClient {
   }
 
   async getPageBySlug(slug: string): Promise<LandingPage> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Return demo page data for any requested slug
+      return {
+        id: 1,
+        title: `Demo Seite: ${slug}`,
+        slug: slug,
+        header_image: "",
+        header_text: "Willkommen bei unserer Demo Landing Page",
+        header_overlay_color: "#000000",
+        header_overlay_opacity: 0.5,
+        header_height: 400,
+        content_blocks: [
+          {
+            id: "1",
+            type: "header",
+            content: { text: "Demo Landing Page" },
+            order: 1,
+          },
+          {
+            id: "2",
+            type: "text",
+            content: {
+              text: "Dies ist eine Demo Landing Page. In der echten Anwendung würden hier die tatsächlichen Inhalte angezeigt.",
+            },
+            order: 2,
+          },
+          {
+            id: "3",
+            type: "form",
+            content: {
+              title: "Jetzt bewerben",
+              fields: [
+                { name: "name", label: "Name", type: "text", required: true },
+                {
+                  name: "email",
+                  label: "E-Mail",
+                  type: "email",
+                  required: true,
+                },
+                {
+                  name: "phone",
+                  label: "Telefon",
+                  type: "tel",
+                  required: false,
+                },
+                {
+                  name: "message",
+                  label: "Nachricht",
+                  type: "textarea",
+                  required: false,
+                },
+              ],
+            },
+            order: 3,
+          },
+        ],
+        status: "published",
+        user_id: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     return this.request<LandingPage>(`/pages/slug/${slug}`);
   }
 
