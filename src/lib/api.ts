@@ -472,6 +472,12 @@ class ApiClient {
   }
 
   async deletePage(id: number): Promise<void> {
+    if (localStorage.getItem("demo_mode") === "true") {
+      // Simulate deleting a page in demo mode
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return Promise.resolve();
+    }
+
     await this.request(`/pages/${id}`, { method: "DELETE" });
   }
 
