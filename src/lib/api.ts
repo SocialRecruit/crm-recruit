@@ -645,6 +645,16 @@ class ApiClient {
   }
 
   async submitForm(pageId: number, data: Record<string, any>): Promise<void> {
+    if (
+      localStorage.getItem("demo_mode") === "true" ||
+      !localStorage.getItem("auth_token")
+    ) {
+      // Simulate form submission in demo mode
+      console.log("Demo form submission:", { pageId, data });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return Promise.resolve();
+    }
+
     await this.request("/submit", {
       method: "POST",
       body: JSON.stringify({ page_id: pageId, data }),
