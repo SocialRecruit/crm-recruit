@@ -29,6 +29,7 @@ const LandingPage = () => {
   }>({});
 
   useEffect(() => {
+    console.log("LandingPage component mounted with slug:", slug);
     if (slug) {
       loadPage(slug);
     }
